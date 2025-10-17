@@ -8,6 +8,7 @@ from typing import Any, Optional
 import google.generativeai as genai
 from app.config import GEMINI_API_KEY, MODEL_NAME
 from app.character import (
+    JAKE_PERSONA,
     CharacterPersona, 
     DEFAULT_PERSONA, 
     get_character_context,
@@ -19,7 +20,7 @@ def build_emotional_prompt(
     context: str,
     user_input: str,
     emotion: str,
-    persona: CharacterPersona = DEFAULT_PERSONA,
+    persona: CharacterPersona = JAKE_PERSONA,
     conversation_history: Optional[str] = None
 ) -> str:
     """Build a comprehensive prompt with character and emotional awareness.
@@ -80,7 +81,7 @@ def generate_reply(
     persona: CharacterPersona = DEFAULT_PERSONA,
     conversation_history: Optional[str] = None,
     temperature: float = 0.8,
-    max_tokens: int = 500
+    max_tokens: int = 1500
 ) -> str:
     """Generate an emotionally-aware reply with character consistency.
 
@@ -113,31 +114,35 @@ def generate_reply(
         # Use the simple GenerativeModel interface
         model = genai.GenerativeModel(MODEL_NAME)
         
-        # Configure generation parameters
+        # Configure generation parameters - increase max tokens significantly
         generation_config = {
             "temperature": temperature,
             "max_output_tokens": max_tokens,
+            "top_p": 0.95,
+            "top_k": 40,
         }
         
         # Configure safety settings to be more permissive for emotional conversations
         safety_settings = [
             {
                 "category": "HARM_CATEGORY_HARASSMENT",
-                "threshold": "BLOCK_NONE",
+                "threshold": "BLOCK_ONLY_HIGH",
             },
             {
                 "category": "HARM_CATEGORY_HATE_SPEECH",
-                "threshold": "BLOCK_NONE",
+                "threshold": "BLOCK_ONLY_HIGH",
             },
             {
                 "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                "threshold": "BLOCK_NONE",
+                "threshold": "BLOCK_ONLY_HIGH",
             },
             {
                 "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                "threshold": "BLOCK_NONE",
+                "threshold": "BLOCK_ONLY_HIGH",
             },
         ]
+        
+        print(f"[llm.generate_reply] Calling API with max_tokens={max_tokens}, temp={temperature}")
         
         response = model.generate_content(
             prompt,
@@ -203,27 +208,34 @@ def generate_reply(
             if hasattr(candidate, 'content'):
                 content = candidate.content
                 print(f"[llm.generate_reply] Content type: {type(content)}")
+                print(f"[llm.generate_reply] Content: {content}")
                 
-                if hasattr(content, 'parts') and content.parts:
-                    print(f"[llm.generate_reply] Parts count: {len(content.parts)}")
-                    # Collect text from all parts
-                    text_parts = []
-                    for i, part in enumerate(content.parts):
-                        print(f"[llm.generate_reply] Part {i}: {type(part)}")
-                        if hasattr(part, 'text'):
-                            part_text = part.text
-                            if part_text:
-                                print(f"[llm.generate_reply] Part {i} text length: {len(part_text)}")
-                                text_parts.append(part_text)
-                        else:
-                            print(f"[llm.generate_reply] Part {i} has no text attribute")
+                if hasattr(content, 'parts'):
+                    parts = content.parts
+                    print(f"[llm.generate_reply] Parts type: {type(parts)}, length: {len(parts) if parts else 0}")
                     
-                    if text_parts:
-                        result = " ".join(text_parts).strip()
-                        print(f"[llm.generate_reply] Successfully extracted {len(result)} chars")
-                        return result
+                    if parts and len(parts) > 0:
+                        print(f"[llm.generate_reply] Parts count: {len(parts)}")
+                        # Collect text from all parts
+                        text_parts = []
+                        for i, part in enumerate(parts):
+                            print(f"[llm.generate_reply] Part {i}: {type(part)}, {part}")
+                            if hasattr(part, 'text'):
+                                part_text = part.text
+                                if part_text:
+                                    print(f"[llm.generate_reply] Part {i} text length: {len(part_text)}")
+                                    text_parts.append(part_text)
+                            else:
+                                print(f"[llm.generate_reply] Part {i} has no text attribute")
+                        
+                        if text_parts:
+                            result = " ".join(text_parts).strip()
+                            print(f"[llm.generate_reply] Successfully extracted {len(result)} chars")
+                            return result
+                    else:
+                        print(f"[llm.generate_reply] Parts is None or empty: {parts}")
                 else:
-                    print(f"[llm.generate_reply] Content has no parts or parts is empty")
+                    print(f"[llm.generate_reply] Content has no parts attribute")
             else:
                 print(f"[llm.generate_reply] Candidate has no content")
         

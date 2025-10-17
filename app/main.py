@@ -20,7 +20,7 @@ from app.conversation_state import (
     add_conversation_turn,
     save_conversation_state
 )
-from app.character import DEFAULT_PERSONA, CharacterPersona
+from app.character import JAKE_PERSONA, CharacterPersona
 
 app = FastAPI(
     title="Emotional RAG API",
@@ -34,9 +34,9 @@ def root():
     """API health check and character info."""
     return {
         "status": "online",
-        "character": DEFAULT_PERSONA.name,
-        "traits": DEFAULT_PERSONA.core_traits,
-        "emotional_intelligence": f"{DEFAULT_PERSONA.emotional_intelligence * 100:.0f}%"
+        "character": JAKE_PERSONA.name,
+        "traits": JAKE_PERSONA.core_traits,
+        "emotional_intelligence": f"{JAKE_PERSONA.emotional_intelligence * 100:.0f}%"
     }
 
 
@@ -75,6 +75,8 @@ def chat(user_input: dict = Body(...)):
         # 1️⃣ Detect user emotion
         emotion = detect_emotion(user_text)
 
+        print ("[][][][][][][]emotion detected by the model is ", emotion, "[][][][]][]")
+
         # 2️⃣ Get conversation state for context
         conv_state = get_conversation_state()
         recent_history = conv_state.get_recent_context(n=3) if use_recent_context else None
@@ -94,7 +96,7 @@ def chat(user_input: dict = Body(...)):
             context=context,
             user_input=user_text,
             emotion=emotion,
-            persona=DEFAULT_PERSONA,
+            persona=JAKE_PERSONA,
             conversation_history=recent_history
         )
 
@@ -117,7 +119,7 @@ def chat(user_input: dict = Body(...)):
                 "dominant_emotion": conv_state.dominant_emotion,
                 "emotional_journey": " → ".join(conv_state.emotion_history[-5:]) if conv_state.emotion_history else "Starting conversation"
             },
-            "character": DEFAULT_PERSONA.name
+            "character": JAKE_PERSONA.name
         }
     
     except Exception as e:
@@ -161,7 +163,7 @@ def reset_conversation():
 @app.get("/character")
 def get_character_info():
     """Get detailed information about the AI character."""
-    persona = DEFAULT_PERSONA
+    persona = JAKE_PERSONA
     return {
         "name": persona.name,
         "traits": persona.core_traits,
